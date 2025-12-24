@@ -1,0 +1,1 @@
+export const FINMIND_TOKEN = 'WA4X3LGN1W1W5YLM';
