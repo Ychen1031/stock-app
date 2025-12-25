@@ -11,6 +11,7 @@ import {
 
 import StockHeader from '../components/stockDetail/StockHeader';
 import PriceBlock from '../components/stockDetail/PriceBlock';
+import HistoricalChart from '../components/stockDetail/HistoricalChart';
 import TechnicalSection from '../components/stockDetail/TechnicalSection';
 import CompanyInfoSection from '../components/stockDetail/CompanyInfoSection';
 import PriceAlertModal from '../components/PriceAlertModal';
@@ -78,6 +79,13 @@ export default function StockDetailScreen() {
         price={price}
         change={change}
         changePercent={changePercent}
+      />
+
+      {/* 歷史價格圖表 */}
+      <HistoricalChart
+        symbol={symbol}
+        market={market}
+        currentPrice={price}
       />
 
       {/* 價格提醒按鈕 */}

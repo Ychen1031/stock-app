@@ -163,20 +163,16 @@ export default function BacktestScreen() {
 
     if (!symbol.trim()) {
       alert('請先輸入股票代號');
+      runningRef.current = false;
       return;
     }
 
     if (rangeKey === 'custom') {
       if (!customStart || !customEnd) {
         alert('請輸入自訂的開始與結束日期（YYYY-MM-DD）');
+        runningRef.current = false;
         return;
       }
-    }
-
-    // 先做：台股 + 買進持有（真實）
-    if (market === 'US') {
-      alert('美股真實回測下一步做（目前先完成台股真實回測）');
-      return;
     }
 
     setLoading(true);
@@ -189,20 +185,27 @@ export default function BacktestScreen() {
         console.log('[Backtest] request', { symbol: symbol.trim(), startDate, endDate });
 
         const allRows = await fetchDailyClosesByStooq({
-          market: 'TW',
+          market,
           symbol: symbol.trim(),
         });
 
-        console.log('[Stooq] allRows length =', allRows?.length);
-        console.log('[Stooq] first/last =', allRows?.[0], allRows?.[allRows.length - 1]);
-
+        console.log('[Backtest] 日期範圍:', { startDate, endDate });
+        console.log('[Backtest] 過濾前資料筆數:', allRows?.length);
+        
         const rows = allRows
           .filter((r) => r.date >= startDate && r.date <= endDate)
           .sort((a, b) => a.date.localeCompare(b.date));
 
+        console.log('[Backtest] 過濾後資料筆數:', rows?.length);
+        if (rows.length > 0) {
+          console.log('[Backtest] 過濾後第一筆:', rows[0]);
+          console.log('[Backtest] 過濾後最後一筆:', rows[rows.length - 1]);
+        }
+
         if (!rows || rows.length < 2) {
           setLoading(false);
-          alert('抓不到足夠的歷史資料（可能代號錯誤或區間太短）');
+          alert(`抓不到足夠的歷史資料\n\n總資料: ${allRows?.length || 0} 筆\n符合日期範圍: ${rows?.length || 0} 筆\n\n可能原因：\n1. 代號錯誤（台股請輸入數字，如：2330）\n2. 區間太短或太舊\n3. 此股票無資料`);
+          runningRef.current = false;
           return;
         }
 
@@ -212,6 +215,7 @@ export default function BacktestScreen() {
         setResult(real);
         setLoading(false);
         setShowModal(true);
+        runningRef.current = false;
         return;
       }
 
@@ -219,11 +223,11 @@ export default function BacktestScreen() {
       setResult(mock);
       setLoading(false);
       setShowModal(true);
+      runningRef.current = false;
     } catch (e) {
       console.log('backtest error:', e);
       setLoading(false);
-      alert('回測失敗，請稍後再試（可看 console log）');
-    } finally {
+      alert('回測失敗，請稍後再試或檢查網路連線\n\n錯誤訊息: ' + (e.message || '未知錯誤'));
       runningRef.current = false;
     }
   };
@@ -236,7 +240,7 @@ export default function BacktestScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.subtitle}>
-          目前先完成「台股買進持有」真實回測；其他策略先保留示意，下一步再逐個升級成真策略。
+          使用 Yahoo Finance 提供台股與美股的真實歷史資料進行「買進持有」回測。
         </Text>
 
         <Text style={styles.label}>市場</Text>
