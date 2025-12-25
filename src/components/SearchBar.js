@@ -1,5 +1,5 @@
 // src/components/SearchBar.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   TextInput,
@@ -9,8 +9,15 @@ import {
   Pressable,
   ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { searchAllStocks } from '../services/searchApi';
+import {
+  getSearchHistory,
+  addSearchHistory,
+  clearSearchHistory,
+  removeSearchHistoryItem,
+} from '../storage/searchHistoryStorage';
 
 export default function SearchBar({ onSelectStock }) {
   const { theme } = useTheme();
@@ -18,6 +25,18 @@ export default function SearchBar({ onSelectStock }) {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [searchHistory, setSearchHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // 載入搜尋歷史
+  useEffect(() => {
+    loadHistory();
+  }, []);
+
+  const loadHistory = async () => {
+    const history = await getSearchHistory();
+    setSearchHistory(history);
+  };
 
   const handleSearch = async (text) => {
     setQuery(text);
@@ -25,9 +44,11 @@ export default function SearchBar({ onSelectStock }) {
     if (text.trim() === '') {
       setResults([]);
       setShowResults(false);
+      setShowHistory(true);
       return;
     }
 
+    setShowHistory(false);
     setLoading(true);
     setShowResults(true);
     
@@ -42,11 +63,44 @@ export default function SearchBar({ onSelectStock }) {
     }
   };
 
-  const handleSelectStock = (stock) => {
+  const handleSelectStock = async (stock) => {
+    // 添加到搜尋歷史
+    await addSearchHistory({
+      symbol: stock.symbol,
+      name: stock.name,
+      market: stock.market,
+    });
+    await loadHistory();
+    
     setQuery('');
     setResults([]);
     setShowResults(false);
+    setShowHistory(false);
     onSelectStock(stock);
+  };
+
+  const handleClearHistory = async () => {
+    await clearSearchHistory();
+    await loadHistory();
+  };
+
+  const handleRemoveHistoryItem = async (symbol, market) => {
+    await removeSearchHistoryItem(symbol, market);
+    await loadHistory();
+  };
+
+  const handleFocus = () => {
+    if (query.trim() === '' && searchHistory.length > 0) {
+      setShowHistory(true);
+    }
+  };
+
+  const handleBlur = () => {
+    // 延遲關閉，讓點擊事件可以觸發
+    setTimeout(() => {
+      setShowResults(false);
+      setShowHistory(false);
+    }, 200);
   };
 
   const renderSearchResult = ({ item }) => (
@@ -68,6 +122,38 @@ export default function SearchBar({ onSelectStock }) {
     </Pressable>
   );
 
+  const renderHistoryItem = ({ item }) => (
+    <Pressable
+      style={[styles.resultItem, { backgroundColor: theme.colors.surface }]}
+      onPress={() => handleSelectStock(item)}
+    >
+      <View style={styles.historyItemContent}>
+        <Ionicons 
+          name="time-outline" 
+          size={16} 
+          color={theme.colors.textSecondary}
+          style={styles.historyIcon}
+        />
+        <View>
+          <Text style={[styles.resultSymbol, { color: theme.colors.text }]}>
+            {item.symbol}
+          </Text>
+          <Text style={[styles.resultName, { color: theme.colors.textSecondary }]}>
+            {item.name}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.historyActions}>
+        <Text style={[styles.resultMarket, { color: theme.colors.primary, marginRight: 8 }]}>
+          {item.market === 'TW' ? '台股' : '美股'}
+        </Text>
+        <Pressable onPress={() => handleRemoveHistoryItem(item.symbol, item.market)}>
+          <Ionicons name="close-circle" size={20} color={theme.colors.textSecondary} />
+        </Pressable>
+      </View>
+    </Pressable>
+  );
+
   return (
     <View style={styles.container}>
       <TextInput
@@ -83,9 +169,43 @@ export default function SearchBar({ onSelectStock }) {
         placeholderTextColor={theme.colors.textSecondary}
         value={query}
         onChangeText={handleSearch}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         autoCapitalize="characters"
       />
       
+      {/* 搜尋歷史 */}
+      {showHistory && searchHistory.length > 0 && (
+        <View
+          style={[
+            styles.resultsContainer,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+            },
+          ]}
+        >
+          <View style={styles.historyHeader}>
+            <Text style={[styles.historyTitle, { color: theme.colors.text }]}>
+              最近搜尋
+            </Text>
+            <Pressable onPress={handleClearHistory}>
+              <Text style={[styles.clearButton, { color: theme.colors.primary }]}>
+                清除全部
+              </Text>
+            </Pressable>
+          </View>
+          <FlatList
+            data={searchHistory}
+            renderItem={renderHistoryItem}
+            keyExtractor={(item, index) => `${item.symbol}-${index}`}
+            style={styles.resultsList}
+            keyboardShouldPersistTaps="handled"
+          />
+        </View>
+      )}
+      
+      {/* 搜尋結果 */}
       {showResults && (
         <View
           style={[
@@ -180,5 +300,33 @@ const styles = StyleSheet.create({
   },
   noResultsText: {
     fontSize: 14,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  historyTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  clearButton: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  historyItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  historyIcon: {
+    marginRight: 8,
+  },
+  historyActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });

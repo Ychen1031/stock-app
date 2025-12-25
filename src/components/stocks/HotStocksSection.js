@@ -7,10 +7,13 @@ import {
   FlatList,
   Pressable,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
+import { useTheme } from '../../context/ThemeContext';
 import { fetchTwHotRanksTop15 } from '../../services/stockRankingApi';
 
-export default function HotStocksSection({ navigation, watchlist = [], onToggleWatchlist }) {
+export default function HotStocksSection({ navigation, watchlist = [], onToggleWatchlist, refreshing, onRefresh }) {
+  const { theme } = useTheme();
   const [stocks, setStocks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -132,6 +135,14 @@ export default function HotStocksSection({ navigation, watchlist = [], onToggleW
         data={stocks}
         keyExtractor={(item, index) => item.symbol + index}
         renderItem={renderItem}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing || false}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
+          />
+        }
       />
     </View>
   );

@@ -33,6 +33,8 @@ export default function StocksScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('hot');
   const [watchlistSymbols, setWatchlistSymbols] = useState([]);
   const [watchlistLoading, setWatchlistLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // 搜尋選中股票後導航
   const handleSelectStock = (stock) => {
@@ -84,6 +86,22 @@ export default function StocksScreen({ navigation }) {
     }
   };
 
+  // 下拉刷新
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      // 重新載入自選股
+      const symbols = await loadWatchlistSymbols();
+      setWatchlistSymbols(symbols);
+      // 更新 key 以觸發子組件刷新
+      setRefreshKey(prev => prev + 1);
+    } catch (e) {
+      console.warn('[refresh] error:', e);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const renderTab = (tab) => {
     const isActive = tab.key === activeTab;
     return (
@@ -109,36 +127,49 @@ export default function StocksScreen({ navigation }) {
       );
     }
 
+    const refreshProps = {
+      refreshing,
+      onRefresh: handleRefresh,
+    };
+
     switch (activeTab) {
       case 'hot':
         return (
           <HotStocksSection
+            key={refreshKey}
             navigation={navigation}
             watchlist={watchlistSymbols}
             onToggleWatchlist={handleToggleWatchlist}
+            {...refreshProps}
           />
         );
       case 'tw':
         return (
           <TaiwanStocksSection
+            key={refreshKey}
             navigation={navigation}
             watchlist={watchlistSymbols}
             onToggleWatchlist={handleToggleWatchlist}
+            {...refreshProps}
           />
         );
       case 'us':
         return (
           <USStocksSection
+            key={refreshKey}
             navigation={navigation}
             watchlist={watchlistSymbols}
             onToggleWatchlist={handleToggleWatchlist}
+            {...refreshProps}
           />
         );
       case 'watchlist':
         return (
           <WatchlistSection
+            key={refreshKey}
             navigation={navigation}
             watchlist={watchlistSymbols}
+            {...refreshProps}
           />
         );
       default:

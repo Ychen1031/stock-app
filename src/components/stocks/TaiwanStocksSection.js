@@ -7,6 +7,7 @@ import {
   FlatList,
   Pressable,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { fetchTaiwanStocks } from '../../services/stockApi';
 import { useTheme } from '../../context/ThemeContext';
@@ -25,6 +26,8 @@ export default function TaiwanStocksSection({
   navigation,
   watchlist = [],
   onToggleWatchlist,
+  refreshing,
+  onRefresh,
 }) {
   const { theme } = useTheme();
   const [stocks, setStocks] = useState([]);
@@ -135,6 +138,14 @@ export default function TaiwanStocksSection({
         keyExtractor={(item, index) => item.symbol + index}
         renderItem={renderItem}
         ListHeaderComponent={renderHeader}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing || false}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
+          />
+        }
       />
     </View>
   );

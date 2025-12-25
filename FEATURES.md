@@ -46,6 +46,11 @@
 - 支援台股、美股混合搜尋
 - 搜尋結果快速預覽
 - 一鍵導航至股票詳情
+- **搜尋歷史記錄**
+  - 自動記錄最近 10 次搜尋
+  - 點擊快速重新查詢
+  - 一鍵清除全部歷史
+  - 單獨刪除歷史項目
 
 ### 📰 財經新聞整合
 - 首頁顯示最新財經新聞
@@ -91,6 +96,10 @@
 - 流暢動畫效果
 - 響應式布局
 - 直覺操作體驗
+- **下拉刷新**
+  - 股票頁面下拉刷新資料
+  - 持倉頁面下拉刷新
+  - 視覺化載入動畫
 - 側邊選單導航（漢堡選單）
   - 一鍵開啟側邊選單
   - 快速切換所有主要頁面
@@ -165,7 +174,8 @@ stock-app/
     ├── storage/                  # 本地儲存
     │   ├── watchlistStorage.js   # 自選股儲存
     │   ├── portfolioStorage.js   # 投資組合儲存
-    │   └── priceAlertStorage.js  # 價格提醒儲存
+    │   ├── priceAlertStorage.js  # 價格提醒儲存
+    │   └── searchHistoryStorage.js # 搜尋歷史儲存
     │
     ├── context/                  # 全局狀態
     │   ├── ThemeContext.js       # 主題管理
@@ -251,6 +261,7 @@ function MyComponent() {
 | `@watchlist` | 自選股清單 | Array<string> |
 | `@portfolio` | 投資組合交易記錄 | Array<Transaction> |
 | `@price_alerts` | 價格提醒設定 | Array<Alert> |
+| `@search_history` | 搜尋歷史記錄 | Array<SearchItem> |
 | `@theme_mode` | 主題偏好 | 'light'\|'dark'\|'auto' |
 
 ### 資料結構範例
@@ -279,6 +290,17 @@ function MyComponent() {
   createdAt: '2025-12-24'
 }
 ```
+
+#### 搜尋歷史 (SearchItem)
+```javascript
+{
+  symbol: '2330.TW',
+  name: '台積電',
+  market: 'TW',          // 'TW' | 'US'
+  timestamp: 1703404800000
+}
+```
+**限制：最多保存 10 筆記錄**
 
 ## 🛠 技術棧
 
@@ -461,6 +483,19 @@ npm run web        # 在瀏覽器運行
 - 導航 ref 透過 screenOptions 獲取，確保跨組件導航正確性
 
 ## 🎉 最近更新
+
+### v2.1.0 (2024-12-25)
+- ✨ 新增搜尋歷史記錄功能
+  - 自動記錄最近 10 次搜尋
+  - 支援快速重新查詢
+  - 可清除全部或單獨刪除
+- 🔄 新增下拉刷新功能
+  - 股票頁面支援下拉刷新
+  - 投資組合頁面支援下拉刷新
+  - 視覺化載入動畫
+- 🐛 修復股價百分比計算錯誤
+- 🐛 修復搜尋歷史導航至股票詳情頁問題
+- 🔧 改進股票詳情頁即時價格獲取
 
 ### v2.0.0 (2024-12-25)
 - ✨ 新增側邊選單功能（漢堡選單）

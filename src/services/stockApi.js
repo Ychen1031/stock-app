@@ -38,12 +38,14 @@ export async function fetchTaiwanStocks(codes) {
     const price = isNaN(last) ? 0 : last;
     const prevClose = isNaN(prev) ? price : prev;
     const change = price - prevClose;
+    const changePercent = prevClose !== 0 ? (change / prevClose) * 100 : 0;
 
     return {
       symbol,
       name,
       price,
       change,
+      changePercent,
     };
   });
 }

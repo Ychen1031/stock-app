@@ -8,6 +8,7 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -25,6 +26,7 @@ export default function PortfolioScreen({ navigation }) {
   const [portfolio, setPortfolio] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHolding, setSelectedHolding] = useState(null);
@@ -56,6 +58,13 @@ export default function PortfolioScreen({ navigation }) {
 
   const handleAddTransaction = () => {
     setShowAddModal(true);
+  };
+
+  // 下拉刷新
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadPortfolioData();
+    setRefreshing(false);
   };
 
   const handleSubmitTransaction = async (data) => {
@@ -280,7 +289,17 @@ export default function PortfolioScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
+          />
+        }
+      >
         {summary && renderSummaryCard()}
         
         <View style={styles.holdingsHeader}>

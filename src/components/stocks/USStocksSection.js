@@ -7,13 +7,16 @@ import {
   FlatList,
   Pressable,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
+import { useTheme } from '../../context/ThemeContext';
 import { fetchUsStockQuotes } from '../../services/usStockApi';
 
 // 這裡先挑幾檔常見美股，之後想再加自己改這個陣列就好
 const US_CODES = ['AAPL', 'MSFT', 'TSLA', 'NVDA'];
 
-export default function USStocksSection({ navigation, watchlist = [], onToggleWatchlist }) {
+export default function USStocksSection({ navigation, watchlist = [], onToggleWatchlist, refreshing, onRefresh }) {
+  const { theme } = useTheme();
   const [stocks, setStocks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -117,6 +120,14 @@ export default function USStocksSection({ navigation, watchlist = [], onToggleWa
         data={stocks}
         keyExtractor={(item, index) => item.symbol + index}
         renderItem={renderItem}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing || false}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
+          />
+        }
       />
     </View>
   );
