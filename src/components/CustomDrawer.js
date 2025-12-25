@@ -27,6 +27,11 @@ export default function CustomDrawer({ visible, onClose, onNavigate }) {
       screen: 'Stocks',
     },
     {
+      label: '選股器',
+      icon: 'filter-outline',
+      screen: 'Screener',
+    },
+    {
       label: '持倉管理',
       icon: 'briefcase-outline',
       screen: 'Portfolio',

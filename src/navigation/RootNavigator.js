@@ -9,6 +9,7 @@ import WelcomeScreen from '../screens/WelcomeScreen';
 import HomeScreen from '../screens/HomeScreen';
 import StocksScreen from '../screens/StocksScreen';
 import StockDetailScreen from '../screens/StockDetailScreen';
+import StockScreenerScreen from '../screens/StockScreenerScreen';
 import BacktestScreen from '../screens/BacktestScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import PortfolioScreen from '../screens/PortfolioScreen';
@@ -185,7 +186,7 @@ function MainTabNavigator() {
           headerLeft: renderMenuButton,
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons 
-              name={focused ? 'settings' : 'settings-outline'} 
+              name={focused ? 'person' : 'person-outline'} 
               size={size} 
               color={color} 
             />
@@ -205,6 +206,8 @@ function MainTabNavigator() {
 
 // 根導航器：歡迎頁 -> 主應用
 export default function RootNavigator() {
+  const { theme } = useTheme();
+  
   return (
     <RootStack.Navigator
       screenOptions={{
@@ -219,6 +222,36 @@ export default function RootNavigator() {
       <RootStack.Screen 
         name="MainApp" 
         component={MainTabNavigator}
+      />
+      <RootStack.Screen 
+        name="Screener" 
+        component={StockScreenerScreen}
+        options={{
+          headerShown: true,
+          title: '選股器',
+          headerBackTitle: '返回',
+          presentation: 'card',
+          headerStyle: {
+            backgroundColor: theme.colors.surface,
+          },
+          headerTintColor: theme.colors.text,
+          headerShadowVisible: false,
+        }}
+      />
+      <RootStack.Screen 
+        name="StockDetail" 
+        component={StockDetailScreen}
+        options={{
+          headerShown: true,
+          title: '股票詳細',
+          headerBackTitle: '返回',
+          presentation: 'card',
+          headerStyle: {
+            backgroundColor: theme.colors.surface,
+          },
+          headerTintColor: theme.colors.text,
+          headerShadowVisible: false,
+        }}
       />
     </RootStack.Navigator>
   );
