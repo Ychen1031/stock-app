@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   Animated,
   Dimensions,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -91,7 +92,10 @@ export default function WelcomeScreen({ navigation }) {
               colors={['#ffffff', '#f0f9ff']}
               style={styles.iconGradient}
             >
-              <Ionicons name="trending-up" size={90} color="#3b82f6" />
+              <Image 
+                source={require('../../assets/profile-photo.jpg')}
+                style={styles.profileImage}
+              />
             </LinearGradient>
           </Animated.View>
           
@@ -217,6 +221,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 16,
     elevation: 8,
+    overflow: 'hidden',
+  },
+  profileImage: {
+    width: 160,
+    height: 160,
+    borderRadius: 80,
   },
   title: {
     fontSize: 36,
