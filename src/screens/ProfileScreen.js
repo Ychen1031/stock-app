@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Switch, Pressable, ScrollView, Alert, Linking, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, Switch, Pressable, ScrollView, Alert, Linking, SafeAreaView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useDrawer } from '../context/DrawerContext';
@@ -7,7 +7,6 @@ import { useDrawer } from '../context/DrawerContext';
 import { savePortfolio } from '../storage/portfolioStorage';
 import { saveWatchlistSymbols } from '../storage/watchlistStorage';
 import { clearSearchHistory } from '../storage/searchHistoryStorage';
-// 👇 請確認你的 userStorage 在這裡 (services 或 storage 資料夾)
 import { loadUserProfile, saveUserProfile, removeUserProfile } from '../storage/userStorage'; 
 import EditProfileModal from '../components/EditProfileModal';
 
@@ -30,27 +29,22 @@ export default function ProfileScreen({ navigation }) {
     Alert.alert('成功', '個人檔案已更新');
   };
 
-  // 👇👇👇 這裡修改了：按下 OK 才跳轉 👇👇👇
   const handleLogout = () => {
     Alert.alert(
-      '登出',               // 標題
-      '您已安全登出',       // 內容
+      '登出',
+      '您已安全登出',
       [
         {
           text: 'OK',
           onPress: async () => {
             try {
-              // 1. 清除帳號資料
               await removeUserProfile();
-              
-              // 2. 跳轉回 Welcome 頁面
               navigation.reset({
                 index: 0,
                 routes: [{ name: 'Welcome' }],
               });
             } catch (error) {
               console.error("登出錯誤:", error);
-              // 萬一出錯也強制跳轉
               navigation.navigate('Welcome');
             }
           }
@@ -176,31 +170,72 @@ export default function ProfileScreen({ navigation }) {
   );
 }
 
+// ✨ 字體優化 helper
+const getFontFamily = (weight = 'normal') => {
+  if (Platform.OS === 'ios') return 'PingFang TC';
+  return weight === 'bold' ? 'sans-serif-medium' : 'sans-serif';
+};
+
 const styles = StyleSheet.create({
   content: { padding: 16 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, marginTop: 8, paddingHorizontal: 4 },
-  pageTitle: { fontSize: 24, fontWeight: '800' },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, marginTop: 18, paddingHorizontal: 4 }, // marginTop 調整
+  
+  // 🔥 [標題優化]
+  pageTitle: { 
+    fontSize: 28, 
+    fontWeight: '700', 
+    fontFamily: getFontFamily('bold'),
+    letterSpacing: 0.8 
+  },
+  
   profileHeader: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 16, marginBottom: 24 },
   avatarContainer: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#E0E7FF', alignItems: 'center', justifyContent: 'center', marginRight: 16 },
-  avatarText: { fontSize: 24, fontWeight: 'bold', color: '#3730A3' },
+  avatarText: { fontSize: 24, fontWeight: 'bold', color: '#3730A3', fontFamily: getFontFamily('bold') },
   profileInfo: { flex: 1 },
-  profileName: { fontSize: 18, fontWeight: '700', marginBottom: 4 },
+  
+  // 🔥 [名字優化]
+  profileName: { 
+    fontSize: 18, 
+    fontWeight: '700', 
+    marginBottom: 4, 
+    fontFamily: getFontFamily('bold'),
+    letterSpacing: 0.5 
+  },
+  
   badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   proBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
-  proBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
-  emailText: { fontSize: 13 },
-  sectionHeader: { fontSize: 13, fontWeight: '600', marginBottom: 8, marginLeft: 4, textTransform: 'uppercase' },
+  proBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '700', fontFamily: getFontFamily('bold') },
+  emailText: { fontSize: 13, fontFamily: getFontFamily() },
+  
+  sectionHeader: { 
+    fontSize: 13, 
+    fontWeight: '700', 
+    marginBottom: 8, 
+    marginLeft: 4, 
+    textTransform: 'uppercase',
+    fontFamily: getFontFamily('bold'),
+    letterSpacing: 0.5,
+    opacity: 0.8
+  },
+  
   sectionContainer: { borderRadius: 12, overflow: 'hidden', marginBottom: 24 },
-  itemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth },
+  itemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth }, // paddingVertical 加大
   itemLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconBox: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  itemLabel: { fontSize: 16 },
+  
+  // 🔥 [列表文字優化]
+  itemLabel: { 
+    fontSize: 16, 
+    fontFamily: getFontFamily(),
+    letterSpacing: 0.3
+  },
+  
   itemRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  itemValue: { fontSize: 14 },
-  themeSelectorRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, paddingRight: 16 },
+  itemValue: { fontSize: 14, fontFamily: getFontFamily() },
+  themeSelectorRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingRight: 16 },
   themeOptions: { flexDirection: 'row', backgroundColor: 'rgba(150, 150, 150, 0.1)', borderRadius: 8, padding: 2 },
   themeBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 },
-  themeBtnText: { fontSize: 13, fontWeight: '600' },
+  themeBtnText: { fontSize: 13, fontWeight: '600', fontFamily: getFontFamily() },
   logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 12, borderWidth: 1, marginTop: 8, marginBottom: 20 },
-  logoutText: { fontSize: 16, fontWeight: '600' },
+  logoutText: { fontSize: 16, fontWeight: '600', fontFamily: getFontFamily('bold') },
 });

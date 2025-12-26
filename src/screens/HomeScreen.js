@@ -11,10 +11,11 @@ import {
   RefreshControl,
   SafeAreaView,
   StatusBar,
+  Platform, // 引入 Platform 以便設定不同系統的字體
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-import { useDrawer } from '../context/DrawerContext'; 
+import { useDrawer } from '../context/DrawerContext';
 import { fetchLatestNews } from '../services/newsApi';
 
 // 模擬指數資料
@@ -32,12 +33,6 @@ export default function HomeScreen({ navigation }) {
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  const todayStr = new Date().toLocaleDateString('zh-TW', {
-    month: 'long',
-    day: 'numeric',
-    weekday: 'long',
-  });
 
   const loadNews = async () => {
     try {
@@ -78,6 +73,7 @@ export default function HomeScreen({ navigation }) {
           <Text style={[styles.indexName, { color: theme.colors.textSecondary }]}>{item.name}</Text>
           <Text style={[styles.indexSymbol, { color: theme.colors.textTertiary }]}>{item.symbol}</Text>
         </View>
+        {/* 數字字體優化 */}
         <Text style={[styles.indexValue, { color: theme.colors.text }]}>
           {item.value.toLocaleString()}
         </Text>
@@ -111,6 +107,7 @@ export default function HomeScreen({ navigation }) {
               {item.published_at ? new Date(item.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
             </Text>
           </View>
+          {/* 新聞標題優化：加行高、字距 */}
           <Text style={[styles.newsTitle, { color: theme.colors.text }]} numberOfLines={2}>
             {item.title}
           </Text>
@@ -138,12 +135,10 @@ export default function HomeScreen({ navigation }) {
       {/* 頂部 Header */}
       <View style={[styles.headerContainer, { backgroundColor: theme.colors.background }]}>
         <View style={styles.headerLeftRow}>
-          {/* 選單按鈕 */}
           <Pressable onPress={openDrawer} style={styles.menuButton}>
             <Ionicons name="menu" size={28} color={theme.colors.text} />
           </Pressable>
           <View>
-            <Text style={[styles.dateText, { color: theme.colors.textSecondary }]}>{todayStr}</Text>
             <Text style={[styles.welcomeText, { color: theme.colors.text }]}>市場概況</Text>
           </View>
         </View>
@@ -165,7 +160,7 @@ export default function HomeScreen({ navigation }) {
           {MOCK_INDICES.map(renderIndexCard)}
         </ScrollView>
 
-        {/* 快捷按鈕區 (修正導航) */}
+        {/* 快捷按鈕區 */}
         <View style={styles.shortcutRow}>
           <Pressable 
             style={styles.shortcutBtn} 
@@ -202,8 +197,7 @@ export default function HomeScreen({ navigation }) {
 
           <Pressable 
             style={styles.shortcutBtn} 
-            onPress={() => navigation.navigate('Portfolio')}
-          >
+            onPress={() => navigation.navigate('Portfolio')}>
             <View style={[styles.iconCircle, { backgroundColor: '#8B5CF6' + '15' }]}>
               <Ionicons name="briefcase" size={24} color="#8B5CF6" />
             </View>
@@ -238,11 +232,20 @@ export default function HomeScreen({ navigation }) {
   );
 }
 
+// ✨ 字體優化設定
+const getFontFamily = (weight = 'normal') => {
+  if (Platform.OS === 'ios') {
+    return 'PingFang TC'; // iOS 強制使用蘋方體
+  }
+  return weight === 'bold' ? 'sans-serif-medium' : 'sans-serif'; // Android 現代黑體
+};
+
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   headerContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
+    marginTop: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -253,36 +256,98 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   menuButton: { padding: 4 },
-  dateText: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
-  welcomeText: { fontSize: 28, fontWeight: '800' },
+  
+  // 🔥 [標題優化]
+  welcomeText: { 
+    fontSize: 28, 
+    fontWeight: '700', // 稍微減輕一點點，不要太死板的 bold
+    fontFamily: getFontFamily('bold'),
+    letterSpacing: 0.8, // 增加字距，看起來比較高級
+  },
+  
   searchButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   container: { flex: 1 },
+  
+  // 指數區域
   indicesContainer: { paddingHorizontal: 16, paddingVertical: 16, gap: 12 },
   indexCard: { width: 150, padding: 12, borderRadius: 12, borderWidth: 1, marginRight: 0 },
   indexHeader: { marginBottom: 8 },
-  indexName: { fontSize: 12, fontWeight: '600' },
-  indexSymbol: { fontSize: 10, marginTop: 2 },
-  indexValue: { fontSize: 18, fontWeight: '700', fontVariant: ['tabular-nums'], marginBottom: 6 },
+  indexName: { 
+    fontSize: 13, 
+    fontWeight: '600',
+    fontFamily: getFontFamily(),
+    letterSpacing: 0.5,
+  },
+  indexSymbol: { fontSize: 10, marginTop: 2, opacity: 0.7 },
+  
+  // 🔥 [數字優化]
+  indexValue: { 
+    fontSize: 19, 
+    fontWeight: '700', 
+    fontVariant: ['tabular-nums'], // 讓數字等寬對齊
+    marginBottom: 6,
+    letterSpacing: 0.5, 
+  },
+  
   changeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   changeText: { fontSize: 12, fontWeight: '600', fontVariant: ['tabular-nums'] },
   percentBadge: { paddingHorizontal: 4, paddingVertical: 2, borderRadius: 4 },
   percentText: { fontSize: 10, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  
+  // 快捷按鈕
   shortcutRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 24 },
   shortcutBtn: { alignItems: 'center', gap: 8 },
   iconCircle: { width: 56, height: 56, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  shortcutText: { fontSize: 12, fontWeight: '500' },
+  shortcutText: { 
+    fontSize: 12, 
+    fontWeight: '500', 
+    fontFamily: getFontFamily(),
+    marginTop: 4 
+  },
+  
+  // 區塊標題
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 },
-  sectionTitle: { fontSize: 20, fontWeight: '700' },
+  sectionTitle: { 
+    fontSize: 20, 
+    fontWeight: '700',
+    fontFamily: getFontFamily('bold'),
+    letterSpacing: 0.5
+  },
+  
   loadingContainer: { padding: 40, alignItems: 'center' },
-  loadingText: { marginTop: 12, fontSize: 14 },
+  loadingText: { marginTop: 12, fontSize: 14, fontFamily: getFontFamily() },
+  
+  // 新聞列表
   newsList: { paddingHorizontal: 16 },
   newsItem: { flexDirection: 'row', paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth, gap: 12 },
   newsContent: { flex: 1, justifyContent: 'space-between' },
   newsHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 8 },
-  newsSource: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
+  newsSource: { 
+    fontSize: 11, 
+    fontWeight: '700', 
+    textTransform: 'uppercase',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-medium', // 英文用系統字體比較好看
+  },
   newsTime: { fontSize: 11 },
-  newsTitle: { fontSize: 15, fontWeight: '600', lineHeight: 22, marginBottom: 6 },
-  newsDesc: { fontSize: 13, lineHeight: 18 },
+  
+  // 🔥 [新聞標題優化]
+  newsTitle: { 
+    fontSize: 16, // 稍微加大
+    fontWeight: '600', 
+    lineHeight: 24, // 增加行高，閱讀更舒適
+    marginBottom: 6,
+    fontFamily: getFontFamily(),
+    letterSpacing: 0.3, // 微調字距
+  },
+  
+  // 🔥 [新聞內文優化]
+  newsDesc: { 
+    fontSize: 14, 
+    lineHeight: 20, // 增加行高
+    fontFamily: getFontFamily(),
+    opacity: 0.8
+  },
+  
   newsImage: { width: 80, height: 80, borderRadius: 8, backgroundColor: '#eee' },
-  emptyText: { textAlign: 'center', marginTop: 20 }
+  emptyText: { textAlign: 'center', marginTop: 20, fontFamily: getFontFamily() }
 });

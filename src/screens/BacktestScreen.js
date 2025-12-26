@@ -1,5 +1,4 @@
-// src/screens/BacktestScreen.js
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,398 +7,304 @@ import {
   TextInput,
   Pressable,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 
-import SegmentedControl from '../components/backtest/SegmentedControl';
-import BacktestResultSheet from '../components/backtest/BacktestResultSheet';
-
-import { fetchDailyClosesByStooq } from '../services/backtestApi';
-import { backtestBuyHold } from '../services/backtestEngine';
-import companyData from '../data/companyData.json';
-
-const MARKETS = [
-  { key: 'TW', label: '台股' },
-  { key: 'US', label: '美股' },
-];
-
-const RANGES = [
-  { key: '3M', label: '3 個月' },
-  { key: '6M', label: '6 個月' },
-  { key: '1Y', label: '1 年' },
-  { key: 'custom', label: '自訂' },
-];
-
-const STRATEGIES = [
-  { key: 'buy_hold', label: '買進持有（真實）' },
-  { key: 'ma_cross', label: '均線交叉 (MA20/MA60)（先示意）' },
-  { key: 'rsi_reversal', label: 'RSI 反轉策略（先示意）' },
-  { key: 'breakout', label: '區間突破 (20 日新高)（先示意）' },
-  { key: 'bb_reversal', label: '布林通道反轉（先示意）' },
-];
-
-// ---- 小工具：日期 ----
-function pad2(n) {
-  return String(n).padStart(2, '0');
-}
-function toYMD(d) {
-  const yyyy = d.getFullYear();
-  const mm = pad2(d.getMonth() + 1);
-  const dd = pad2(d.getDate());
-  return `${yyyy}-${mm}-${dd}`;
-}
-function daysAgoDate(nDays) {
-  const d = new Date();
-  d.setDate(d.getDate() - nDays);
-  return d;
-}
-
-function calcRangeDates(rangeKey, customStart, customEnd) {
-  const end = new Date();
-  if (rangeKey === 'custom') {
-    return { startDate: customStart, endDate: customEnd };
-  }
-
-  // 用「日曆天」往回抓，避免遇到假日沒資料
-  // 3M：抓 120 天、6M：抓 240 天、1Y：抓 480 天（保險）
-  const map = {
-    '3M': 120,
-    '6M': 240,
-    '1Y': 480,
-  };
-  const backDays = map[rangeKey] ?? 120;
-  const start = daysAgoDate(backDays);
-
-  return { startDate: toYMD(start), endDate: toYMD(end) };
-}
-
-// ---- 其他策略：暫時仍用示意結果（避免你一次做太多） ----
-function runMockBacktest({ days, strategyKey }) {
-  let price = 100;
-  const prices = [price];
-
-  let vol = 1.0;
-  let baseWin = 55;
-  let tradeBase = 8;
-
-  switch (strategyKey) {
-    case 'ma_cross':
-      vol = 1.3;
-      baseWin = 52;
-      tradeBase = 15;
-      break;
-    case 'rsi_reversal':
-      vol = 1.1;
-      baseWin = 58;
-      tradeBase = 10;
-      break;
-    case 'breakout':
-      vol = 1.5;
-      baseWin = 50;
-      tradeBase = 18;
-      break;
-    case 'bb_reversal':
-      vol = 0.9;
-      baseWin = 57;
-      tradeBase = 9;
-      break;
-    case 'buy_hold':
-    default:
-      vol = 0.8;
-      baseWin = 60;
-      tradeBase = 4;
-      break;
-  }
-
-  const d = Math.max(20, days || 60);
-  for (let i = 1; i < d; i += 1) {
-    const noise = (Math.random() - 0.5) * 2;
-    price = price * (1 + (noise * vol) / 100);
-    prices.push(price);
-  }
-
-  const startPrice = prices[0];
-  const endPrice = prices[prices.length - 1];
-  const totalReturn = (endPrice / startPrice - 1) * 100;
-
-  const yearFactor = 240 / d;
-  const annualReturn = ((endPrice / startPrice) ** yearFactor - 1) * 100;
-
-  let peak = prices[0];
-  let maxDrawdown = 0;
-  prices.forEach((p) => {
-    if (p > peak) peak = p;
-    const dd = (p / peak - 1) * 100;
-    if (dd < maxDrawdown) maxDrawdown = dd;
-  });
-
-  const trades = tradeBase + Math.floor(Math.random() * Math.max(3, tradeBase / 2));
-  const winRate = baseWin + (Math.random() - 0.5) * 10;
-
-  return { totalReturn, annualReturn, maxDrawdown, winRate, trades };
-}
-
-export default function BacktestScreen() {
-  const [market, setMarket] = useState('TW');
-  const [symbol, setSymbol] = useState('');
-  const [rangeKey, setRangeKey] = useState('3M');
-  const [customStart, setCustomStart] = useState('');
-  const [customEnd, setCustomEnd] = useState('');
-  const [strategyKey, setStrategyKey] = useState('buy_hold');
-
+export default function BacktestScreen({ navigation }) {
+  const { theme } = useTheme();
+  
+  // 模擬狀態
+  const [symbol, setSymbol] = useState('2330');
+  const [days, setDays] = useState('60');
+  const [initialCapital, setInitialCapital] = useState('100000');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const runningRef = useRef(false);
 
-  const fmt = (value, digits = 2) =>
-    Number.isFinite(value) ? value.toFixed(digits) : '--';
-
-  const selectedRangeLabel = RANGES.find((r) => r.key === rangeKey)?.label ?? '';
-  const selectedStrategyLabel =
-    STRATEGIES.find((s) => s.key === strategyKey)?.label ?? '';
-
-  // 獲取公司名稱
-  const getCompanyName = (sym) => {
-    if (!sym) return '';
-    const cleanSymbol = sym.trim();
-    // companyData 是物件，直接用鍵查找
-    const company = companyData[cleanSymbol];
-    return company?.fullName || '';
-  };
-
-  const companyName = getCompanyName(symbol);
-
-  const handleRun = async () => {
-    if (runningRef.current) return;
-    runningRef.current = true;
-
-    if (!symbol.trim()) {
-      alert('請先輸入股票代號');
-      runningRef.current = false;
-      return;
-    }
-
-    if (rangeKey === 'custom') {
-      if (!customStart || !customEnd) {
-        alert('請輸入自訂的開始與結束日期（YYYY-MM-DD）');
-        runningRef.current = false;
-        return;
-      }
-    }
-
+  // 模擬執行回測
+  const runBacktest = () => {
+    if (!symbol || !days) return;
     setLoading(true);
     setResult(null);
 
-    try {
-      const { startDate, endDate } = calcRangeDates(rangeKey, customStart, customEnd);
-
-      if (strategyKey === 'buy_hold') {
-        console.log('[Backtest] request', { symbol: symbol.trim(), startDate, endDate });
-
-        const allRows = await fetchDailyClosesByStooq({
-          market,
-          symbol: symbol.trim(),
-        });
-
-        console.log('[Backtest] 日期範圍:', { startDate, endDate });
-        console.log('[Backtest] 過濾前資料筆數:', allRows?.length);
-        
-        const rows = allRows
-          .filter((r) => r.date >= startDate && r.date <= endDate)
-          .sort((a, b) => a.date.localeCompare(b.date));
-
-        console.log('[Backtest] 過濾後資料筆數:', rows?.length);
-        if (rows.length > 0) {
-          console.log('[Backtest] 過濾後第一筆:', rows[0]);
-          console.log('[Backtest] 過濾後最後一筆:', rows[rows.length - 1]);
-        }
-
-        if (!rows || rows.length < 2) {
-          setLoading(false);
-          alert(`抓不到足夠的歷史資料\n\n總資料: ${allRows?.length || 0} 筆\n符合日期範圍: ${rows?.length || 0} 筆\n\n可能原因：\n1. 代號錯誤（台股請輸入數字，如：2330）\n2. 區間太短或太舊\n3. 此股票無資料`);
-          runningRef.current = false;
-          return;
-        }
-
-        const closes = rows.map((r) => r.close);
-        const real = backtestBuyHold({ closes });
-
-        setResult(real);
-        setLoading(false);
-        setShowModal(true);
-        runningRef.current = false;
-        return;
-      }
-
-      const mock = runMockBacktest({ days: 60, strategyKey });
-      setResult(mock);
+    // 假裝計算 1.5 秒
+    setTimeout(() => {
       setLoading(false);
-      setShowModal(true);
-      runningRef.current = false;
-    } catch (e) {
-      console.log('backtest error:', e);
-      setLoading(false);
-      alert('回測失敗，請稍後再試或檢查網路連線\n\n錯誤訊息: ' + (e.message || '未知錯誤'));
-      runningRef.current = false;
-    }
+      setResult({
+        totalReturn: 15.4,
+        netProfit: 15400,
+        winRate: 62.5,
+        maxDrawdown: -5.2,
+        trades: 12,
+        sharpeRatio: 1.8,
+        finalCapital: 115400,
+      });
+    }, 1500);
   };
 
-  return (
-    <View style={styles.wrapper}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Text style={styles.subtitle}>
-          使用 Yahoo Finance 提供台股與美股的真實歷史資料進行「買進持有」回測。
-        </Text>
-
-        <Text style={styles.label}>市場</Text>
-        <SegmentedControl options={MARKETS} value={market} onChange={setMarket} />
-
-        <Text style={styles.label}>股票代號</Text>
-        <TextInput
-          style={styles.input}
-          placeholder={market === 'TW' ? '例如：2330, 0050' : '例如：AAPL, TSLA'}
-          value={symbol}
-          onChangeText={setSymbol}
-          autoCapitalize="characters"
-        />
-
-        <Text style={styles.label}>回測區間</Text>
-        <SegmentedControl options={RANGES} value={rangeKey} onChange={setRangeKey} />
-
-        {rangeKey === 'custom' && (
-          <View style={styles.customRangeBox}>
-            <Text style={styles.customHint}>請輸入自訂回測日期（格式：YYYY-MM-DD）</Text>
-
-            <Text style={styles.smallLabel}>開始日期</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="例如：2024-01-01"
-              value={customStart}
-              onChangeText={setCustomStart}
-            />
-
-            <Text style={styles.smallLabel}>結束日期</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="例如：2024-06-30"
-              value={customEnd}
-              onChangeText={setCustomEnd}
-            />
-          </View>
-        )}
-
-        <Text style={styles.label}>策略</Text>
-        <SegmentedControl
-          options={STRATEGIES}
-          value={strategyKey}
-          onChange={setStrategyKey}
-          scrollable
-        />
-
-        <Pressable
-          style={[styles.runButton, loading && styles.runButtonDisabled]}
-          onPress={handleRun}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.runButtonText}>開始回測</Text>
-          )}
-        </Pressable>
-      </ScrollView>
-
-      {result && (
-        <BacktestResultSheet
-          visible={showModal}
-          onClose={() => setShowModal(false)}
-          result={result}
-          market={market}
-          symbol={symbol}
-          companyName={companyName}
-          rangeLabel={selectedRangeLabel}
-          strategyLabel={selectedStrategyLabel}
-          fmt={fmt}
-        />
-      )}
+  const ResultCard = ({ label, value, color, isPercent }) => (
+    <View style={[styles.resultCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+      <Text style={[styles.resultLabel, { color: theme.colors.textSecondary }]}>{label}</Text>
+      <Text style={[
+        styles.resultValue, 
+        { color: color || theme.colors.text }
+      ]}>
+        {value > 0 && isPercent ? '+' : ''}{value}{isPercent ? '%' : ''}
+      </Text>
     </View>
+  );
+
+  return (
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={styles.container}>
+          
+          {/* 頂部標題 */}
+          <View style={styles.header}>
+            <Text style={[styles.pageTitle, { color: theme.colors.text }]}>策略回測</Text>
+            <View style={[styles.badge, { backgroundColor: theme.colors.primary + '20' }]}>
+               <Text style={[styles.badgeText, { color: theme.colors.primary }]}>BETA</Text>
+            </View>
+          </View>
+
+          {/* 參數設定區塊 */}
+          <View style={[styles.card, { backgroundColor: theme.colors.card }]}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>參數設定</Text>
+            
+            <View style={styles.inputGroup}>
+              <View style={styles.inputWrapper}>
+                <Text style={[styles.label, { color: theme.colors.textSecondary }]}>股票代號</Text>
+                <TextInput
+                  style={[styles.input, { color: theme.colors.text, backgroundColor: theme.colors.background }]}
+                  value={symbol}
+                  onChangeText={setSymbol}
+                  placeholder="如: 2330"
+                  placeholderTextColor={theme.colors.textTertiary}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              <View style={styles.inputWrapper}>
+                <Text style={[styles.label, { color: theme.colors.textSecondary }]}>回測天數</Text>
+                <TextInput
+                  style={[styles.input, { color: theme.colors.text, backgroundColor: theme.colors.background }]}
+                  value={days}
+                  onChangeText={setDays}
+                  keyboardType="numeric"
+                  placeholder="60"
+                  placeholderTextColor={theme.colors.textTertiary}
+                />
+              </View>
+            </View>
+
+            <View style={[styles.inputWrapper, { marginTop: 12 }]}>
+              <Text style={[styles.label, { color: theme.colors.textSecondary }]}>初始資金 (TWD)</Text>
+              <TextInput
+                style={[styles.input, { color: theme.colors.text, backgroundColor: theme.colors.background }]}
+                value={initialCapital}
+                onChangeText={setInitialCapital}
+                keyboardType="numeric"
+                placeholder="100000"
+                placeholderTextColor={theme.colors.textTertiary}
+              />
+            </View>
+
+            <Pressable 
+              style={({pressed}) => [
+                styles.runBtn, 
+                { backgroundColor: theme.colors.primary, opacity: pressed ? 0.9 : 1 }
+              ]}
+              onPress={runBacktest}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <>
+                  <Ionicons name="play" size={18} color="#FFF" style={{ marginRight: 8 }} />
+                  <Text style={styles.runBtnText}>開始回測</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+
+          {/* 回測結果顯示 */}
+          {result && !loading && (
+            <View style={styles.resultSection}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text, marginBottom: 16 }]}>回測結果報告</Text>
+              
+              {/* 總結大卡片 */}
+              <View style={[styles.summaryCard, { backgroundColor: result.netProfit >= 0 ? '#10B981' : '#EF4444' }]}>
+                 <Text style={styles.summaryLabel}>淨損益 (Net Profit)</Text>
+                 <Text style={styles.summaryValue}>
+                   {result.netProfit >= 0 ? '+' : ''}{result.netProfit.toLocaleString()}
+                 </Text>
+                 <Text style={styles.summarySub}>
+                   期末資金: ${result.finalCapital.toLocaleString()}
+                 </Text>
+              </View>
+
+              <View style={styles.gridContainer}>
+                <ResultCard 
+                  label="總報酬率" 
+                  value={result.totalReturn} 
+                  isPercent 
+                  color={result.totalReturn >= 0 ? theme.colors.up : theme.colors.down} 
+                />
+                <ResultCard 
+                  label="勝率" 
+                  value={result.winRate} 
+                  isPercent 
+                  color={theme.colors.primary} 
+                />
+                <ResultCard 
+                  label="最大回撤" 
+                  value={result.maxDrawdown} 
+                  isPercent 
+                  color={theme.colors.down} 
+                />
+                <ResultCard 
+                  label="夏普比率" 
+                  value={result.sharpeRatio} 
+                  color={theme.colors.text} 
+                />
+                <ResultCard 
+                  label="交易次數" 
+                  value={result.trades} 
+                  color={theme.colors.text} 
+                />
+              </View>
+            </View>
+          )}
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
+// ✨ 字體優化 Helper (與其他頁面保持一致)
+const getFontFamily = (weight = 'normal') => {
+  if (Platform.OS === 'ios') return 'PingFang TC';
+  return weight === 'bold' ? 'sans-serif-medium' : 'sans-serif';
+};
+
 const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: '#f9fafb',
+  safeArea: { flex: 1 },
+  container: { padding: 16 },
+  
+  // 標題區
+  header: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginBottom: 24, 
+    marginTop: 18,
+    gap: 12
   },
-  container: {
-    flex: 1,
+  // 🔥 [標題優化]
+  pageTitle: { 
+    fontSize: 28, 
+    fontWeight: '700', 
+    fontFamily: getFontFamily('bold'),
+    letterSpacing: 0.8 
   },
-  content: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 40,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: '#6b7280',
+  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  badgeText: { fontSize: 12, fontWeight: '700', fontFamily: getFontFamily('bold') },
+
+  // 卡片區塊
+  card: { padding: 20, borderRadius: 16, marginBottom: 24 },
+  sectionTitle: { 
+    fontSize: 18, 
+    fontWeight: '700', 
     marginBottom: 16,
-    lineHeight: 18,
+    fontFamily: getFontFamily('bold'),
+    letterSpacing: 0.5 
   },
-  label: {
-    fontSize: 14,
+  
+  inputGroup: { flexDirection: 'row', gap: 12 },
+  inputWrapper: { flex: 1, gap: 8 },
+  label: { fontSize: 14, fontWeight: '500', fontFamily: getFontFamily() },
+  
+  // 🔥 [輸入框優化]
+  input: { 
+    height: 48, 
+    borderRadius: 12, 
+    paddingHorizontal: 16, 
+    fontSize: 16, 
+    fontFamily: getFontFamily(), // 輸入數字時會更漂亮
+    fontVariant: ['tabular-nums']
+  },
+
+  runBtn: { 
+    flexDirection: 'row',
+    height: 50, 
+    borderRadius: 12, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    marginTop: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4
+  },
+  runBtnText: { 
+    color: '#FFF', 
+    fontSize: 16, 
     fontWeight: '600',
-    marginTop: 12,
-    marginBottom: 6,
-    color: '#374151',
+    fontFamily: getFontFamily('bold'),
+    letterSpacing: 1
   },
-  smallLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginTop: 10,
-    marginBottom: 4,
-    color: '#4b5563',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 14,
-    backgroundColor: '#fff',
-  },
-  runButton: {
-    marginTop: 20,
-    borderRadius: 999,
-    paddingVertical: 10,
+
+  // 結果區塊
+  resultSection: { marginTop: 8 },
+  summaryCard: {
+    padding: 24,
+    borderRadius: 16,
     alignItems: 'center',
-    backgroundColor: '#111827',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4
   },
-  runButtonDisabled: {
-    opacity: 0.7,
+  summaryLabel: { color: 'rgba(255,255,255,0.9)', fontSize: 14, marginBottom: 8, fontFamily: getFontFamily() },
+  
+  // 🔥 [總損益數字優化]
+  summaryValue: { 
+    color: '#FFF', 
+    fontSize: 32, 
+    fontWeight: '700', 
+    fontFamily: getFontFamily('bold'),
+    fontVariant: ['tabular-nums'], // 數字等寬
+    letterSpacing: 1,
+    marginBottom: 4
   },
-  runButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+  summarySub: { color: 'rgba(255,255,255,0.8)', fontSize: 13, fontFamily: getFontFamily() },
+
+  gridContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  resultCard: { 
+    width: '48%', // 兩欄排列
+    padding: 16, 
+    borderRadius: 12, 
+    borderWidth: 1,
+    alignItems: 'center'
   },
-  customRangeBox: {
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  customHint: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginBottom: 4,
+  resultLabel: { fontSize: 12, marginBottom: 6, fontFamily: getFontFamily() },
+  
+  // 🔥 [詳細數據數字優化]
+  resultValue: { 
+    fontSize: 18, 
+    fontWeight: '700', 
+    fontFamily: getFontFamily('bold'),
+    fontVariant: ['tabular-nums'] // 讓百分比數字對齊
   },
 });
