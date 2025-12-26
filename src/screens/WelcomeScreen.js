@@ -3,6 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
+  Image,
   Pressable,
   SafeAreaView,
   Animated,
@@ -142,7 +143,7 @@ export default function WelcomeScreen({ navigation }) {
                 <View style={[styles.circle, styles.circle3]} />
               </View>
 
-              {/* 主圖標動畫區 (這裡改用 Icon，不再讀取圖片) */}
+              {/* 主圖標動畫區 (改用本地圖片 assets/icon.png) */}
               <Animated.View 
                 style={[
                   styles.iconContainer,
@@ -153,8 +154,12 @@ export default function WelcomeScreen({ navigation }) {
                   colors={['#ffffff', '#f0f9ff']}
                   style={styles.iconGradient}
                 >
-                  {/* 👇 這裡改成股票 Icon，避免找不到圖片錯誤 */}
-                  <Ionicons name="trending-up" size={80} color="#3b82f6" />
+                  {/* 使用本地 icon 檔案（請將您傳的圖片放到 ./assets/icon.png） */}
+                  <Image
+                    source={require('../../assets/app-logo.png')}
+                    style={styles.logoImage}
+                    resizeMode="cover"
+                  />
                 </LinearGradient>
               </Animated.View>
               
@@ -332,6 +337,11 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 8,
     // 移除 overflow: 'hidden' 讓 icon 陰影更自然
+  },
+  logoImage: {
+    width: 160,
+    height: 160,
+    borderRadius: 80,
   },
   // 移除原本的 profileImage 樣式，因為不需要了
   title: {
